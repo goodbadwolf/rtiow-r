@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub type Float = f64;
 
@@ -88,6 +88,14 @@ impl Div<Float> for Vec3 {
     }
 }
 
+impl Neg for Vec3 {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Vec3::with_elements(-self.e[0], -self.e[1], -self.e[2])
+    }
+}
+
 impl Ray {
     pub fn new() -> Ray {
         Ray {
@@ -100,7 +108,7 @@ impl Ray {
         Ray { origin, direction }
     }
 
-    pub fn at(self, t: Float) -> Vec3 {
+    pub fn at(self, t: Float) -> Point {
         self.origin + self.direction * t
     }
 }
@@ -111,4 +119,8 @@ pub fn to_unit_vector(v: &Vec3) -> Vec3 {
 
 pub fn dot_product(u: &Vec3, v: &Vec3) -> Float {
     u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2]
+}
+
+pub fn is_in_range(t: Float, t_min: Float, t_max: Float) -> bool {
+    t < t_max && t > t_min
 }

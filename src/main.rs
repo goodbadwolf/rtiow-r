@@ -2,13 +2,14 @@ mod math;
 mod trace;
 
 use crate::math::{Float, Point, Ray, Vec3};
-use crate::trace::get_ray_color;
+use crate::trace::{get_ray_color, HittableCollection, Sphere};
 use std::io::{self, Write};
+use std::rc::Rc;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: u32 = 384;
+const IMAGE_WIDTH: u32 = 3840;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 
 fn main() -> std::io::Result<()> {
@@ -25,13 +26,24 @@ fn main() -> std::io::Result<()> {
     let depth = Vec3::with_elements(0 as Float, 0 as Float, focal_length);
     let left_bottom_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - depth;
 
+    let mut world = HittableCollection::new();
+    world.add(Rc::new(Sphere::new(
+        &Point::with_elements(0 as Float, 0 as Float, -1 as Float),
+        0.5 as Float,
+    )));
+    world.add(Rc::new(Sphere::new(
+        &Point::with_elements(0 as Float, -100.5 as Float, -1 as Float),
+        100 as Float,
+    )));
+
     for j in (0..IMAGE_HEIGHT).rev() {
         for i in 0..IMAGE_WIDTH {
             let u = i as Float / (IMAGE_WIDTH - 1) as Float;
             let v = j as Float / (IMAGE_HEIGHT - 1) as Float;
             let dir = left_bottom_corner + horizontal * u + vertical * v - origin;
             let ray = Ray::with_data(origin, dir);
-            let pixel_color = get_ray_color(&ray);
+
+            let pixel_color = get_ray_color(&ray, &world);
             write_pixel(&mut out, &pixel_color)?;
         }
     }
