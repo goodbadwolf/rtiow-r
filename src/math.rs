@@ -1,4 +1,5 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use rand::Rng;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
 pub type Float = f64;
 
@@ -60,6 +61,14 @@ impl Add for Vec3 {
     }
 }
 
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, other: Self) {
+        self.e[0] += other.e[0];
+        self.e[1] += other.e[1];
+        self.e[2] += other.e[2];
+    }
+}
+
 impl Sub for Vec3 {
     type Output = Self;
 
@@ -80,11 +89,25 @@ impl Mul<Float> for Vec3 {
     }
 }
 
+impl MulAssign<Float> for Vec3 {
+    fn mul_assign(&mut self, t: Float) {
+        self.e[0] *= t;
+        self.e[1] *= t;
+        self.e[2] *= t;
+    }
+}
+
 impl Div<Float> for Vec3 {
     type Output = Self;
 
     fn div(self, t: Float) -> Self::Output {
         self * (1 as Float / t)
+    }
+}
+
+impl DivAssign<Float> for Vec3 {
+    fn div_assign(&mut self, t: Float) {
+        *self *= 1 as Float / t;
     }
 }
 
@@ -104,10 +127,6 @@ impl Ray {
         }
     }
 
-    pub fn with_data(origin: Vec3, direction: Vec3) -> Ray {
-        Ray { origin, direction }
-    }
-
     pub fn at(self, t: Float) -> Point {
         self.origin + self.direction * t
     }
@@ -123,4 +142,18 @@ pub fn dot_product(u: &Vec3, v: &Vec3) -> Float {
 
 pub fn is_in_range(t: Float, t_min: Float, t_max: Float) -> bool {
     t < t_max && t > t_min
+}
+
+pub fn clamp(x: Float, min: Float, max: Float) -> Float {
+    if x < min {
+        min
+    } else if x > max {
+        max
+    } else {
+        x
+    }
+}
+
+pub fn random_float() -> Float {
+    rand::thread_rng().gen()
 }

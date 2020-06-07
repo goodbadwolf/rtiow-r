@@ -1,4 +1,6 @@
-use crate::math::{dot_product, is_in_range, to_unit_vector, Color, Float, Point, Ray, Vec3};
+use crate::math::{
+    clamp, dot_product, is_in_range, to_unit_vector, Color, Float, Point, Ray, Vec3,
+};
 use std::cmp::Ordering;
 use std::io::Write;
 
@@ -25,6 +27,13 @@ pub struct Sphere {
 
 pub struct HittableCollection {
     pub hittables: Vec<Box<dyn Hittable>>,
+}
+
+pub struct Camera {
+    origin: Point,
+    lower_left_corner: Point,
+    horizontal: Vec3,
+    vertical: Vec3,
 }
 
 impl HitRecord {
@@ -122,6 +131,37 @@ impl Hittable for HittableCollection {
     }
 }
 
+impl Camera {
+    pub fn new(width: u32, height: u32) -> Self {
+        let aspect_ratio = width as Float / height as Float;
+        let viewport_height = 2 as Float;
+        let viewport_width = aspect_ratio * viewport_height;
+        let focal_length = 1 as Float;
+
+        let origin = Point::new();
+        let horizontal = Vec3::with_elements(viewport_width, 0 as Float, 0 as Float);
+        let vertical = Vec3::with_elements(0 as Float, viewport_height, 0 as Float);
+        let depth = Vec3::with_elements(0 as Float, 0 as Float, focal_length);
+        let lower_left_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - depth;
+
+        Camera {
+            origin,
+            horizontal,
+            vertical,
+            lower_left_corner,
+        }
+    }
+
+    pub fn get_ray(&self, u: Float, v: Float) -> Ray {
+        let direction =
+            self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin;
+        Ray {
+            origin: self.origin,
+            direction,
+        }
+    }
+}
+
 pub fn write_pixel(out: &mut dyn Write, pixel_color: &Vec3) -> std::io::Result<()> {
     writeln!(
         out,
@@ -144,5 +184,5 @@ pub fn get_ray_color(ray: &Ray, world: &HittableCollection) -> Color {
 }
 
 fn to_color_byte(c: Float) -> u8 {
-    (c * (255.999 as Float)) as u8
+    ((256 as Float) * clamp(c, 0 as Float, 0.999 as Float)) as u8
 }
