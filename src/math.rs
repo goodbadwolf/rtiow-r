@@ -108,3 +108,7 @@ impl Ray {
 pub fn to_unit_vector(v: &Vec3) -> Vec3 {
     *v / v.length()
 }
+
+pub fn dot_product(u: &Vec3, v: &Vec3) -> Float {
+    u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2]
+}

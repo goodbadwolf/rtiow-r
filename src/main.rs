@@ -8,8 +8,8 @@ use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: i32 = 384;
-const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as i32;
+const IMAGE_WIDTH: u32 = 384;
+const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 
 fn main() -> std::io::Result<()> {
     let timer = Instant::now();
