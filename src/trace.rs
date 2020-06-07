@@ -1,7 +1,6 @@
 use crate::math::{dot_product, is_in_range, to_unit_vector, Color, Float, Point, Ray, Vec3};
 use std::cmp::Ordering;
 use std::io::Write;
-use std::rc::Rc;
 
 const WHITE: Color = Color::with_elements(1.0 as Float, 1.0 as Float, 1.0 as Float);
 const LIGHT_BLUE: Color = Color::with_elements(0.5 as Float, 0.7 as Float, 1.0 as Float);
@@ -25,7 +24,7 @@ pub struct Sphere {
 }
 
 pub struct HittableCollection {
-    pub hittables: Vec<Rc<dyn Hittable>>,
+    pub hittables: Vec<Box<dyn Hittable>>,
 }
 
 impl HitRecord {
@@ -96,13 +95,13 @@ impl HittableCollection {
         HittableCollection { hittables: vec![] }
     }
 
-    pub fn with_hittable(hittable: Rc<dyn Hittable>) -> Self {
+    pub fn with_hittable(hittable: Box<dyn Hittable>) -> Self {
         let mut result = Self::new();
         result.add(hittable);
         result
     }
 
-    pub fn add(&mut self, hittable: Rc<dyn Hittable>) {
+    pub fn add(&mut self, hittable: Box<dyn Hittable>) {
         self.hittables.push(hittable);
     }
 }

@@ -4,12 +4,11 @@ mod trace;
 use crate::math::{Float, Point, Ray, Vec3};
 use crate::trace::{get_ray_color, HittableCollection, Sphere};
 use std::io::{self, Write};
-use std::rc::Rc;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: u32 = 3840;
+const IMAGE_WIDTH: u32 = 384;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 
 fn main() -> std::io::Result<()> {
@@ -27,11 +26,11 @@ fn main() -> std::io::Result<()> {
     let left_bottom_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - depth;
 
     let mut world = HittableCollection::new();
-    world.add(Rc::new(Sphere::new(
+    world.add(Box::new(Sphere::new(
         &Point::with_elements(0 as Float, 0 as Float, -1 as Float),
         0.5 as Float,
     )));
-    world.add(Rc::new(Sphere::new(
+    world.add(Box::new(Sphere::new(
         &Point::with_elements(0 as Float, -100.5 as Float, -1 as Float),
         100 as Float,
     )));
