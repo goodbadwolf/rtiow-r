@@ -1,9 +1,12 @@
 use crate::math::{
-    clamp, dot_product, is_in_range, to_unit_vector, Color, Float, Point, Ray, Vec3,
+    clamp, dot_product, is_in_range, random_in_range, random_in_unit_hemisphere, to_unit_vector,
+    Color, Float, Point, Ray, Vec3,
 };
 use std::cmp::Ordering;
+use std::f64::consts::PI;
 use std::io::Write;
 
+const BLACK: Color = Color::with_elements(0.0 as Float, 0.0 as Float, 0.0 as Float);
 const WHITE: Color = Color::with_elements(1.0 as Float, 1.0 as Float, 1.0 as Float);
 const LIGHT_BLUE: Color = Color::with_elements(0.5 as Float, 0.7 as Float, 1.0 as Float);
 
@@ -162,25 +165,46 @@ impl Camera {
     }
 }
 
-pub fn write_pixel(out: &mut dyn Write, pixel_color: &Vec3) -> std::io::Result<()> {
-    writeln!(
-        out,
-        "{} {} {}",
-        to_color_byte(pixel_color.x()),
-        to_color_byte(pixel_color.y()),
-        to_color_byte(pixel_color.z())
-    )
+pub fn lambertian_random_in_unit_sphere() -> Vec3 {
+    let a = random_in_range(0 as Float, 2 as Float * PI);
+    let z = random_in_range(-1 as Float, 1 as Float);
+    let r = (1 as Float - (z * z)).sqrt();
+    Vec3::with_elements(r * a.cos(), r * a.sin(), z)
 }
 
-pub fn get_ray_color(ray: &Ray, world: &HittableCollection) -> Color {
-    if let Some(hit_normal) = world.hit(ray, 0 as Float, Float::INFINITY) {
-        return (hit_normal.normal + WHITE) * 0.5 as Float;
+pub fn get_ray_color(ray: &Ray, world: &HittableCollection, depth: u32) -> Color {
+    if depth == 0 {
+        return BLACK;
+    }
+
+    if let Some(hit) = world.hit(ray, 0.001 as Float, Float::INFINITY) {
+        let bounce_target = hit.point + hit.normal + lambertian_random_in_unit_sphere();
+        let bounced_ray = Ray {
+            origin: hit.point,
+            direction: bounce_target - hit.point,
+        };
+        return get_ray_color(&bounced_ray, world, depth - 1) * 0.5 as Float;
     }
 
     let unit_direction = to_unit_vector(&ray.direction);
     let t = (unit_direction.y() + (1.0 as Float)) * (0.5 as Float);
 
     WHITE * (1.0 as Float - t) + LIGHT_BLUE * t
+}
+
+pub fn write_pixel(out: &mut dyn Write, pixel_color: &Color) -> std::io::Result<()> {
+    let corrected_color = apply_gamma_correction(pixel_color);
+    writeln!(
+        out,
+        "{} {} {}",
+        to_color_byte(corrected_color.x()),
+        to_color_byte(corrected_color.y()),
+        to_color_byte(corrected_color.z())
+    )
+}
+
+fn apply_gamma_correction(color: &Color) -> Color {
+    Color::with_elements(color.e[0].sqrt(), color.e[1].sqrt(), color.e[2].sqrt())
 }
 
 fn to_color_byte(c: Float) -> u8 {

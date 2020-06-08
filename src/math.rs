@@ -18,7 +18,7 @@ pub struct Ray {
 }
 
 impl Vec3 {
-    pub fn new() -> Vec3 {
+    pub const fn new() -> Vec3 {
         Vec3 {
             e: [0 as Float, 0 as Float, 0 as Float],
         }
@@ -26,6 +26,18 @@ impl Vec3 {
 
     pub const fn with_elements(e0: Float, e1: Float, e2: Float) -> Vec3 {
         Vec3 { e: [e0, e1, e2] }
+    }
+
+    pub fn random() -> Vec3 {
+        Vec3::with_elements(random_float(), random_float(), random_float())
+    }
+
+    pub fn random_in_range(min: Float, max: Float) -> Vec3 {
+        Vec3::with_elements(
+            random_in_range(min, max),
+            random_in_range(min, max),
+            random_in_range(min, max),
+        )
     }
 
     pub fn x(&self) -> Float {
@@ -146,14 +158,37 @@ pub fn is_in_range(t: Float, t_min: Float, t_max: Float) -> bool {
 
 pub fn clamp(x: Float, min: Float, max: Float) -> Float {
     if x < min {
-        min
+        return min;
     } else if x > max {
-        max
-    } else {
-        x
+        return max;
     }
+    x
 }
 
 pub fn random_float() -> Float {
     rand::thread_rng().gen()
+}
+
+pub fn random_in_range(min: Float, max: Float) -> Float {
+    rand::thread_rng().gen_range(min, max)
+}
+
+pub fn random_in_unit_sphere() -> Vec3 {
+    loop {
+        let point = Vec3::random_in_range(-1 as Float, 1 as Float);
+        if point.length_squared() > 1 as Float {
+            continue;
+        } else {
+            return point;
+        }
+    }
+}
+
+pub fn random_in_unit_hemisphere(normal: &Vec3) -> Vec3 {
+    let in_unit_sphere = random_in_unit_sphere();
+    if dot_product(&in_unit_sphere, normal) > 0 as Float {
+        in_unit_sphere
+    } else {
+        -in_unit_sphere
+    }
 }

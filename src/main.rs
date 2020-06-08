@@ -11,6 +11,7 @@ const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
 const IMAGE_WIDTH: u32 = 768;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
+const MAX_DEPTH: u32 = 20;
 
 fn main() -> std::io::Result<()> {
     let timer = Instant::now();
@@ -36,7 +37,7 @@ fn main() -> std::io::Result<()> {
                 let u = (i as Float + random_float()) / (IMAGE_WIDTH - 1) as Float;
                 let v = (j as Float + random_float()) / (IMAGE_HEIGHT - 1) as Float;
                 let ray = camera.get_ray(u, v);
-                pixel_color += get_ray_color(&ray, &world);
+                pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
             }
             pixel_color /= SAMPLES_PER_PIXEL as Float;
 
