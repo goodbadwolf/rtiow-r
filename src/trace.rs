@@ -162,7 +162,7 @@ impl Camera {
         let viewport_width = aspect_ratio * viewport_height;
         let focal_length = 1 as Float;
 
-        let origin = Point::new();
+        let origin = Point::with_elements(0 as Float, 0 as Float, 1 as Float);
         let horizontal = Vec3::with_elements(viewport_width, 0 as Float, 0 as Float);
         let vertical = Vec3::with_elements(0 as Float, viewport_height, 0 as Float);
         let depth = Vec3::with_elements(0 as Float, 0 as Float, focal_length);

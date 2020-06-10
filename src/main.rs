@@ -50,6 +50,27 @@ fn main() -> std::io::Result<()> {
             albedo: Color::with_elements(0.8 as Float, 0.8 as Float, 0.8 as Float),
         }),
     )));
+    world.add(Box::new(Sphere::new(
+        &Point::with_elements(-0.2 as Float, -0.45 as Float, -0.65 as Float),
+        0.05 as Float,
+        Rc::new(LambertianMaterial {
+            albedo: Color::with_elements(0.8 as Float, 0.1 as Float, 0.1 as Float),
+        }),
+    )));
+    world.add(Box::new(Sphere::new(
+        &Point::with_elements(0 as Float, -0.45 as Float, -0.65 as Float),
+        0.05 as Float,
+        Rc::new(LambertianMaterial {
+            albedo: Color::with_elements(0.1 as Float, 0.8 as Float, 0.1 as Float),
+        }),
+    )));
+    world.add(Box::new(Sphere::new(
+        &Point::with_elements(0.2 as Float, -0.45 as Float, -0.65 as Float),
+        0.05 as Float,
+        Rc::new(LambertianMaterial {
+            albedo: Color::with_elements(0.1 as Float, 0.1 as Float, 0.8 as Float),
+        }),
+    )));
 
     let camera = Camera::new(IMAGE_WIDTH, IMAGE_HEIGHT);
 
