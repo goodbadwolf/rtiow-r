@@ -2,13 +2,16 @@ mod math;
 mod trace;
 
 use crate::math::{random_float, Color, Float, Point};
-use crate::trace::{get_ray_color, Camera, HittableCollection, Sphere};
+use crate::trace::{
+    get_ray_color, Camera, HittableCollection, LambertianMaterial, MetalMaterial, Sphere,
+};
 use std::io::{self, Write};
+use std::rc::Rc;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: u32 = 768;
+const IMAGE_WIDTH: u32 = 384;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: u32 = 20;
@@ -22,11 +25,32 @@ fn main() -> std::io::Result<()> {
     world.add(Box::new(Sphere::new(
         &Point::with_elements(0 as Float, 0 as Float, -1 as Float),
         0.5 as Float,
+        Rc::new(LambertianMaterial {
+            albedo: Color::with_elements(0.7 as Float, 0.3 as Float, 0.3 as Float),
+        }),
     )));
     world.add(Box::new(Sphere::new(
         &Point::with_elements(0 as Float, -100.5 as Float, -1 as Float),
         100 as Float,
+        Rc::new(LambertianMaterial {
+            albedo: Color::with_elements(0.8 as Float, 0.8 as Float, 0.0 as Float),
+        }),
     )));
+    world.add(Box::new(Sphere::new(
+        &Point::with_elements(1 as Float, 0 as Float, -1 as Float),
+        0.5 as Float,
+        Rc::new(MetalMaterial {
+            albedo: Color::with_elements(0.8 as Float, 0.6 as Float, 0.2 as Float),
+        }),
+    )));
+    world.add(Box::new(Sphere::new(
+        &Point::with_elements(-1 as Float, 0 as Float, -1 as Float),
+        0.5 as Float,
+        Rc::new(MetalMaterial {
+            albedo: Color::with_elements(0.8 as Float, 0.8 as Float, 0.8 as Float),
+        }),
+    )));
+
     let camera = Camera::new(IMAGE_WIDTH, IMAGE_HEIGHT);
 
     for j in (0..IMAGE_HEIGHT).rev() {

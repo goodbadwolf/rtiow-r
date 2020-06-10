@@ -64,31 +64,31 @@ impl Vec3 {
 impl Add for Vec3 {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self {
+    fn add(self, rhs: Self) -> Self {
         Self::with_elements(
-            self.e[0] + other.e[0],
-            self.e[1] + other.e[1],
-            self.e[2] + other.e[2],
+            self.e[0] + rhs.e[0],
+            self.e[1] + rhs.e[1],
+            self.e[2] + rhs.e[2],
         )
     }
 }
 
 impl AddAssign for Vec3 {
-    fn add_assign(&mut self, other: Self) {
-        self.e[0] += other.e[0];
-        self.e[1] += other.e[1];
-        self.e[2] += other.e[2];
+    fn add_assign(&mut self, rhs: Self) {
+        self.e[0] += rhs.e[0];
+        self.e[1] += rhs.e[1];
+        self.e[2] += rhs.e[2];
     }
 }
 
 impl Sub for Vec3 {
     type Output = Self;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, rhs: Self) -> Self::Output {
         Self::with_elements(
-            self.e[0] - other.e[0],
-            self.e[1] - other.e[1],
-            self.e[2] - other.e[2],
+            self.e[0] - rhs.e[0],
+            self.e[1] - rhs.e[1],
+            self.e[2] - rhs.e[2],
         )
     }
 }
@@ -98,6 +98,18 @@ impl Mul<Float> for Vec3 {
 
     fn mul(self, t: Float) -> Self::Output {
         Self::with_elements(self.e[0] * t, self.e[1] * t, self.e[2] * t)
+    }
+}
+
+impl Mul for Vec3 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Vec3::with_elements(
+            self.e[0] * rhs.e[0],
+            self.e[1] * rhs.e[1],
+            self.e[2] * rhs.e[2],
+        )
     }
 }
 
@@ -191,4 +203,8 @@ pub fn random_in_unit_hemisphere(normal: &Vec3) -> Vec3 {
     } else {
         -in_unit_sphere
     }
+}
+
+pub fn reflect_around_normal(v: &Vec3, normal: &Vec3) -> Vec3 {
+    *v - *normal * 2 as Float * dot_product(v, normal)
 }
