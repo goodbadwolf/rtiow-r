@@ -4,30 +4,26 @@ mod trace;
 use crate::math::{random_float, random_in_range, Color, Float, Point, Vec3};
 use crate::trace::{
     get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial, Material,
-    MetalMaterial, Sphere,
+    MetalMaterial, Sphere, BLACK,
 };
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: u32 = 100;
+const IMAGE_WIDTH: u32 = 200;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: u32 = 20;
 
 fn main() -> std::io::Result<()> {
-    let timer = Instant::now();
-
-    let file_name = format!("output_{}.ppm", 0);
-    let mut output = BufWriter::new(File::create(&Path::new(&file_name))?);
-    writeln!(&mut output, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
-
+    let mut frame_buffer = vec![vec![BLACK; IMAGE_WIDTH as usize]; IMAGE_HEIGHT as usize];
     let world = generate_world();
 
+    let render_timer = Instant::now();
     let look_from = Point::new(13 as Float, 2 as Float, 3 as Float);
     let look_at = Point::new(0 as Float, 0 as Float, 0 as Float);
     let vup = Vec3::new(0 as Float, 1 as Float, 0 as Float);
@@ -44,7 +40,7 @@ fn main() -> std::io::Result<()> {
         distance_to_focus,
     );
 
-    for j in (0..IMAGE_HEIGHT).rev() {
+    for j in 0..IMAGE_HEIGHT {
         for i in 0..IMAGE_WIDTH {
             let mut pixel_color = Color::new(0 as Float, 0 as Float, 0 as Float);
 
@@ -55,13 +51,27 @@ fn main() -> std::io::Result<()> {
                 pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
             }
             pixel_color /= SAMPLES_PER_PIXEL as Float;
+            frame_buffer[j as usize][i as usize] = pixel_color;
+        }
+    }
 
-            write_pixel(&mut output, &pixel_color)?;
+    let io_timer = Instant::now();
+    let file_name = format!("output_{}.ppm", 0);
+    let mut output = BufWriter::new(File::create(&Path::new(&file_name))?);
+    writeln!(&mut output, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
+    for j in (0..IMAGE_HEIGHT).rev() {
+        for i in 0..IMAGE_WIDTH {
+            write_pixel(&mut output, &frame_buffer[j as usize][i as usize])?;
         }
     }
     output.flush()?;
 
-    eprintln!("Time taken = {}ms", timer.elapsed().as_millis());
+    eprintln!(
+        "Render time taken = {}ms\nFile IO time taken = {}ms",
+        render_timer.elapsed().as_millis(),
+        io_timer.elapsed().as_millis(),
+    );
+
     Ok(())
 }
 
