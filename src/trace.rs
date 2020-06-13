@@ -1,32 +1,32 @@
 use crate::math::{
     clamp, cross_product, degrees_to_radians, dot_product, is_in_range, random_float,
     random_in_range, random_in_unit_disk, reflect_around_normal, refract_around_normal,
-    to_unit_vector, Color, Float, Point, Ray, Vec3,
+    to_unit_vector, Color, Point, Ray, Vec3,
 };
 use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::io::Write;
 use std::rc::Rc;
 
-pub const BLACK: Color = Color::new(0.0 as Float, 0.0 as Float, 0.0 as Float);
-pub const WHITE: Color = Color::new(1.0 as Float, 1.0 as Float, 1.0 as Float);
-const LIGHT_BLUE: Color = Color::new(0.5 as Float, 0.7 as Float, 1.0 as Float);
+pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
+pub const WHITE: Color = Color::new(1.0, 1.0, 1.0);
+const LIGHT_BLUE: Color = Color::new(0.5, 0.7, 1.0);
 
 pub struct HitRecord {
     pub point: Point,
     pub normal: Vec3,
-    pub t: Float,
+    pub t: f64,
     pub front_face: bool,
     pub material: Rc<dyn Material>,
 }
 
 pub trait Hittable {
-    fn hit(&self, ray: &Ray, t_min: Float, t_max: Float) -> Option<HitRecord>;
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
 pub struct Sphere {
     pub center: Point,
-    pub radius: Float,
+    pub radius: f64,
     pub material: Rc<dyn Material>,
 }
 
@@ -43,7 +43,7 @@ pub struct Camera {
     horizontal: Vec3,
     vertical: Vec3,
     lower_left_corner: Point,
-    lens_radius: Float,
+    lens_radius: f64,
 }
 
 pub trait Material {
@@ -56,25 +56,25 @@ pub struct LambertianMaterial {
 
 pub struct MetalMaterial {
     pub albedo: Color,
-    pub fuzziness: Float,
+    pub fuzziness: f64,
 }
 
 pub struct DiaelectriMaterial {
     pub albedo: Color,
-    pub ref_idx: Float,
+    pub ref_idx: f64,
 }
 
 impl HitRecord {
     pub fn from_hit(
         point: &Point,
         ray: &Ray,
-        t: Float,
+        t: f64,
         outward_normal: &Vec3,
         material: Rc<dyn Material>,
     ) -> Self {
         let mut result = HitRecord {
             point: *point,
-            normal: Vec3::new(0 as Float, 0 as Float, 0 as Float),
+            normal: Vec3::new(0.0, 0.0, 0.0),
             t,
             front_face: false,
             material,
@@ -84,7 +84,7 @@ impl HitRecord {
     }
 
     pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: &Vec3) {
-        self.front_face = dot_product(&ray.direction, &outward_normal) < 0 as Float;
+        self.front_face = dot_product(&ray.direction, &outward_normal) < 0.0;
         self.normal = if self.front_face {
             *outward_normal
         } else {
@@ -94,7 +94,7 @@ impl HitRecord {
 }
 
 impl Sphere {
-    pub fn new(center: &Point, radius: Float, material: Rc<dyn Material>) -> Self {
+    pub fn new(center: &Point, radius: f64, material: Rc<dyn Material>) -> Self {
         Sphere {
             center: *center,
             radius,
@@ -102,7 +102,7 @@ impl Sphere {
         }
     }
 
-    fn calc_hit(&self, t: Float, ray: &Ray) -> HitRecord {
+    fn calc_hit(&self, t: f64, ray: &Ray) -> HitRecord {
         let point = ray.at(t);
         let outward_normal = (point - self.center) / self.radius;
         HitRecord::from_hit(&point, &ray, t, &outward_normal, self.material.clone())
@@ -117,7 +117,7 @@ impl Hittable for Sphere {
         let c = oc.length_squared() - self.radius * self.radius;
         let discriminant = half_b * half_b - a * c;
 
-        match discriminant.partial_cmp(&(0 as Float)) {
+        match discriminant.partial_cmp(&(0.0)) {
             Some(Ordering::Less) => None,
             None => None,
             _ => {
@@ -167,14 +167,14 @@ impl Camera {
         look_from: &Point,
         look_at: &Point,
         vup: &Vec3,
-        vfov: Float,
-        aspect_ratio: Float,
-        aperture: Float,
-        focus_distance: Float,
+        vfov: f64,
+        aspect_ratio: f64,
+        aperture: f64,
+        focus_distance: f64,
     ) -> Self {
         let theta = degrees_to_radians(vfov);
-        let h = (theta / 2 as Float).tan();
-        let viewport_height = 2 as Float * h;
+        let h = (theta / 2.0).tan();
+        let viewport_height = 2.0 * h;
         let viewport_width = aspect_ratio * viewport_height;
 
         let w = to_unit_vector(&(*look_from - *look_at));
@@ -184,8 +184,7 @@ impl Camera {
         let origin = *look_from;
         let horizontal = u * viewport_width * focus_distance;
         let vertical = v * viewport_height * focus_distance;
-        let lower_left_corner =
-            origin - horizontal / 2 as Float - vertical / 2 as Float - w * focus_distance;
+        let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - w * focus_distance;
 
         Camera {
             origin,
@@ -195,11 +194,11 @@ impl Camera {
             horizontal,
             vertical,
             lower_left_corner,
-            lens_radius: aperture / 2 as Float,
+            lens_radius: aperture / 2.0,
         }
     }
 
-    pub fn get_ray(&self, s: Float, t: Float) -> Ray {
+    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
         let rd = random_in_unit_disk() * self.lens_radius;
         let offset = self.u * rd.x() + self.v * rd.y();
         let origin = self.origin + offset;
@@ -230,7 +229,7 @@ impl Material for MetalMaterial {
             direction: fuzzed_direction,
         };
         *attenuation = self.albedo;
-        if dot_product(&scattered_ray.direction, &hit.normal) > 0 as Float {
+        if dot_product(&scattered_ray.direction, &hit.normal) > 0.0 {
             Some(scattered_ray)
         } else {
             None
@@ -239,17 +238,17 @@ impl Material for MetalMaterial {
 }
 
 impl DiaelectriMaterial {
-    pub fn new(ref_idx: Float) -> Self {
+    pub fn new(ref_idx: f64) -> Self {
         DiaelectriMaterial {
             ref_idx,
             albedo: WHITE,
         }
     }
 
-    fn schlick(cosine: Float, ref_idx: Float) -> Float {
-        let r0 = (1 as Float - ref_idx) / (1 as Float + ref_idx);
+    fn schlick(cosine: f64, ref_idx: f64) -> f64 {
+        let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
         let r0 = r0 * r0;
-        r0 + (1 as Float - r0) * (1 as Float - cosine).powi(5)
+        r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
     }
 }
 
@@ -257,16 +256,16 @@ impl Material for DiaelectriMaterial {
     fn scatter(&self, ray: &Ray, hit: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
         *attenuation = self.albedo;
         let etai_over_etat = if hit.front_face {
-            1 as Float / self.ref_idx
+            1.0 / self.ref_idx
         } else {
             self.ref_idx
         };
         let direction = to_unit_vector(&ray.direction);
-        let cos_thetha = dot_product(&(-direction), &hit.normal).min(1 as Float);
-        let sin_thetha = (1 as Float - cos_thetha * cos_thetha).sqrt();
+        let cos_thetha = dot_product(&(-direction), &hit.normal).min(1.0);
+        let sin_thetha = (1.0 - cos_thetha * cos_thetha).sqrt();
         let reflect_prob = DiaelectriMaterial::schlick(cos_thetha, etai_over_etat);
         let scattered_direction =
-            if (etai_over_etat * sin_thetha > 1 as Float) || reflect_prob > random_float() {
+            if (etai_over_etat * sin_thetha > 1.0) || reflect_prob > random_float() {
                 reflect_around_normal(&direction, &hit.normal)
             } else {
                 refract_around_normal(&direction, &hit.normal, etai_over_etat)
@@ -281,9 +280,9 @@ impl Material for DiaelectriMaterial {
 }
 
 pub fn lambertian_random_in_unit_sphere() -> Vec3 {
-    let a = random_in_range(0 as Float, 2 as Float * PI);
-    let z = random_in_range(-1 as Float, 1 as Float);
-    let r = (1 as Float - (z * z)).sqrt();
+    let a = random_in_range(0.0, 2.0 * PI);
+    let z = random_in_range(-1.0, 1.0);
+    let r = (1.0 - (z * z)).sqrt();
     Vec3::new(r * a.cos(), r * a.sin(), z)
 }
 
@@ -292,7 +291,7 @@ pub fn get_ray_color(ray: &Ray, world: &HittableCollection, depth: u32) -> Color
         return BLACK;
     }
 
-    if let Some(hit) = world.hit(ray, 0.001 as Float, Float::INFINITY) {
+    if let Some(hit) = world.hit(ray, 0.001, f64::INFINITY) {
         let mut attenuation = WHITE;
         if let Some(scattered_ray) = hit.material.scatter(&ray, &hit, &mut attenuation) {
             return attenuation * get_ray_color(&scattered_ray, world, depth - 1);
@@ -302,9 +301,9 @@ pub fn get_ray_color(ray: &Ray, world: &HittableCollection, depth: u32) -> Color
     }
 
     let unit_direction = to_unit_vector(&ray.direction);
-    let t = (unit_direction.y() + (1.0 as Float)) * (0.5 as Float);
+    let t = (unit_direction.y() + (1.0)) * (0.5);
 
-    WHITE * (1.0 as Float - t) + LIGHT_BLUE * t
+    WHITE * (1.0 - t) + LIGHT_BLUE * t
 }
 
 pub fn write_pixel(out: &mut dyn Write, pixel_color: &Color) -> std::io::Result<()> {
@@ -322,6 +321,6 @@ fn apply_gamma_correction(color: &Color) -> Color {
     Color::new(color.e[0].sqrt(), color.e[1].sqrt(), color.e[2].sqrt())
 }
 
-fn to_color_byte(c: Float) -> u8 {
-    ((256 as Float) * clamp(c, 0 as Float, 0.999 as Float)) as u8
+fn to_color_byte(c: f64) -> u8 {
+    ((256.0) * clamp(c, 0.0, 0.999)) as u8
 }
