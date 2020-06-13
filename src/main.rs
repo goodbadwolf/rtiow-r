@@ -3,7 +3,7 @@ mod trace;
 
 use crate::math::{random_float, random_in_range, Color, Float, Point, Vec3};
 use crate::trace::{
-    get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial, Material,
+    get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial,
     MetalMaterial, Sphere, BLACK,
 };
 use std::fs::File;

@@ -1,7 +1,7 @@
 use crate::math::{
     clamp, cross_product, degrees_to_radians, dot_product, is_in_range, random_float,
-    random_in_range, random_in_unit_disk, random_in_unit_hemisphere, reflect_around_normal,
-    refract_around_normal, to_unit_vector, Color, Float, Point, Ray, Vec3,
+    random_in_range, random_in_unit_disk, reflect_around_normal, refract_around_normal,
+    to_unit_vector, Color, Float, Point, Ray, Vec3,
 };
 use std::cmp::Ordering;
 use std::f64::consts::PI;
@@ -17,7 +17,7 @@ pub struct HitRecord {
     pub normal: Vec3,
     pub t: Float,
     pub front_face: bool,
-    pub material: Rc<Material>,
+    pub material: Rc<dyn Material>,
 }
 
 pub trait Hittable {
@@ -27,13 +27,14 @@ pub trait Hittable {
 pub struct Sphere {
     pub center: Point,
     pub radius: Float,
-    pub material: Rc<Material>,
+    pub material: Rc<dyn Material>,
 }
 
 pub struct HittableCollection {
     pub hittables: Vec<Box<dyn Hittable>>,
 }
 
+#[allow(dead_code)]
 pub struct Camera {
     origin: Point,
     u: Vec3,
@@ -69,7 +70,7 @@ impl HitRecord {
         ray: &Ray,
         t: Float,
         outward_normal: &Vec3,
-        material: Rc<Material>,
+        material: Rc<dyn Material>,
     ) -> Self {
         let mut result = HitRecord {
             point: *point,
@@ -93,7 +94,7 @@ impl HitRecord {
 }
 
 impl Sphere {
-    pub fn new(center: &Point, radius: Float, material: Rc<Material>) -> Self {
+    pub fn new(center: &Point, radius: Float, material: Rc<dyn Material>) -> Self {
         Sphere {
             center: *center,
             radius,
@@ -138,12 +139,6 @@ impl Hittable for Sphere {
 impl HittableCollection {
     pub fn new() -> Self {
         HittableCollection { hittables: vec![] }
-    }
-
-    pub fn with_hittable(hittable: Box<dyn Hittable>) -> Self {
-        let mut result = Self::new();
-        result.add(hittable);
-        result
     }
 
     pub fn add(&mut self, hittable: Box<dyn Hittable>) {
@@ -214,7 +209,7 @@ impl Camera {
 }
 
 impl Material for LambertianMaterial {
-    fn scatter(&self, ray: &Ray, hit: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
+    fn scatter(&self, _ray: &Ray, hit: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
         let scatter_direction = hit.normal + lambertian_random_in_unit_sphere();
         *attenuation = self.albedo;
         let scattered_ray = Ray {

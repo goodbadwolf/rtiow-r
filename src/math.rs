@@ -139,13 +139,6 @@ impl Neg for Vec3 {
 }
 
 impl Ray {
-    pub fn new() -> Ray {
-        Ray {
-            origin: Vec3::new(0 as Float, 0 as Float, 0 as Float),
-            direction: Vec3::new(0 as Float, 0 as Float, 0 as Float),
-        }
-    }
-
     pub fn at(self, t: Float) -> Point {
         self.origin + self.direction * t
     }
@@ -188,6 +181,7 @@ pub fn random_in_range(min: Float, max: Float) -> Float {
     rand::thread_rng().gen_range(min, max)
 }
 
+#[allow(dead_code)]
 pub fn random_in_unit_sphere() -> Vec3 {
     loop {
         let point = Vec3::random_in_range(-1 as Float, 1 as Float);
@@ -214,6 +208,7 @@ pub fn random_in_unit_disk() -> Vec3 {
     }
 }
 
+#[allow(dead_code)]
 pub fn random_in_unit_hemisphere(normal: &Vec3) -> Vec3 {
     let in_unit_sphere = random_in_unit_sphere();
     if dot_product(&in_unit_sphere, normal) > 0 as Float {
