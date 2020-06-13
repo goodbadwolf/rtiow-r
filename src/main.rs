@@ -1,115 +1,38 @@
 mod math;
 mod trace;
 
-use crate::math::{random_float, Color, Float, Point, Vec3};
+use crate::math::{random_float, random_in_range, Color, Float, Point, Vec3};
 use crate::trace::{
-    get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial,
+    get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial, Material,
     MetalMaterial, Sphere,
 };
-use std::f64::consts::PI;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, BufWriter, Write};
+use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: Float = 16 as Float / 9 as Float;
-const IMAGE_WIDTH: u32 = 768;
+const IMAGE_WIDTH: u32 = 100;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as Float / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: u32 = 20;
 
 fn main() -> std::io::Result<()> {
     let timer = Instant::now();
-    let mut out: Box<dyn Write> = Box::new(io::stdout());
-    writeln!(&mut out, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
 
-    let mut world = HittableCollection::new();
-    // Middle sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(0 as Float, 0 as Float, -1 as Float),
-        0.5 as Float,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0.1 as Float, 0.2 as Float, 0.5 as Float),
-        }),
-    )));
-    // Ground sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(0 as Float, -100.5 as Float, -1 as Float),
-        100 as Float,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0.8 as Float, 0.8 as Float, 0.0 as Float),
-        }),
-    )));
-    // Right sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(1 as Float, 0 as Float, -1 as Float),
-        0.5 as Float,
-        Rc::new(MetalMaterial {
-            albedo: Color::new(0.8 as Float, 0.6 as Float, 0.2 as Float),
-            fuzziness: 0.0 as Float,
-        }),
-    )));
-    // Left sphere - outer
-    world.add(Box::new(Sphere::new(
-        &Point::new(-1 as Float, 0 as Float, -1 as Float),
-        0.5 as Float,
-        Rc::new(DiaelectriMaterial::new(1.5 as Float)),
-    )));
-    // Left sphere - inner
-    world.add(Box::new(Sphere::new(
-        &Point::new(-1 as Float, 0 as Float, -1 as Float),
-        -0.45 as Float,
-        Rc::new(DiaelectriMaterial::new(1.5 as Float)),
-    )));
-    // R sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(-0.2 as Float, -0.45 as Float, -0.65 as Float),
-        0.05 as Float,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0.8 as Float, 0.1 as Float, 0.1 as Float),
-        }),
-    )));
-    // G Sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(0 as Float, -0.45 as Float, -0.65 as Float),
-        0.05 as Float,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0.1 as Float, 0.8 as Float, 0.1 as Float),
-        }),
-    )));
-    // B Sphere
-    world.add(Box::new(Sphere::new(
-        &Point::new(0.2 as Float, -0.45 as Float, -0.65 as Float),
-        0.05 as Float,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0.1 as Float, 0.1 as Float, 0.8 as Float),
-        }),
-    )));
+    let file_name = format!("output_{}.ppm", 0);
+    let mut output = BufWriter::new(File::create(&Path::new(&file_name))?);
+    writeln!(&mut output, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
 
-    /*
-    // Camera test world
-    let R = (PI / 4 as Float).cos();
-    world.add(Box::new(Sphere::new(
-        &Point::new(-R, 0 as Float, -1 as Float),
-        R,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(0 as Float, 0 as Float, 1 as Float),
-        }),
-    )));
-    world.add(Box::new(Sphere::new(
-        &Point::new(R, 0 as Float, -1 as Float),
-        R,
-        Rc::new(LambertianMaterial {
-            albedo: Color::new(1 as Float, 0 as Float, 0 as Float),
-        }),
-    )));
-     */
+    let world = generate_world();
 
-    let look_from = Point::new(3 as Float, 3 as Float, 2 as Float);
-    let look_at = Point::new(0 as Float, 0 as Float, -1 as Float);
+    let look_from = Point::new(13 as Float, 2 as Float, 3 as Float);
+    let look_at = Point::new(0 as Float, 0 as Float, 0 as Float);
     let vup = Vec3::new(0 as Float, 1 as Float, 0 as Float);
-    let distance_to_focus = (look_from - look_at).length();
-    let aperture = 2 as Float;
+    let distance_to_focus = 10 as Float;
+    let aperture = 0.1 as Float;
 
     let camera = Camera::new(
         &look_from,
@@ -133,9 +56,83 @@ fn main() -> std::io::Result<()> {
             }
             pixel_color /= SAMPLES_PER_PIXEL as Float;
 
-            write_pixel(&mut out, &pixel_color)?;
+            write_pixel(&mut output, &pixel_color)?;
         }
     }
+    output.flush()?;
+
     eprintln!("Time taken = {}ms", timer.elapsed().as_millis());
     Ok(())
+}
+
+fn generate_world() -> HittableCollection {
+    let mut world = HittableCollection::new();
+
+    let ground_material = Rc::new(LambertianMaterial {
+        albedo: Color::new(0.5 as Float, 0.5 as Float, 0.5 as Float),
+    });
+    world.add(Box::new(Sphere::new(
+        &Point::new(0 as Float, -1000 as Float, 0 as Float),
+        1000 as Float,
+        ground_material,
+    )));
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let material_choice = random_float();
+            let center = Point::new(
+                a as Float + 0.9 * random_float(),
+                0.19,
+                b as Float + 0.9 * random_float(),
+            );
+
+            let is_visible = (center - Point::new(4.0, 0.2, 0.0)).length() > 0.9;
+            if !is_visible {
+                continue;
+            }
+
+            if material_choice < 0.8 {
+                // Diffuse
+                let albedo = Color::random() * Color::random();
+                let material = Rc::new(LambertianMaterial { albedo });
+                let sphere = Box::new(Sphere::new(&center, 0.2, material));
+                world.add(sphere);
+            } else if material_choice < 0.95 {
+                // Metal
+                let albedo = Color::random_in_range(0.5, 1.0);
+                let fuzziness = random_in_range(0.0, 0.5);
+                let material = Rc::new(MetalMaterial { albedo, fuzziness });
+                let sphere = Box::new(Sphere::new(&center, 0.2, material));
+                world.add(sphere);
+            } else {
+                // Glass
+                let material = Rc::new(DiaelectriMaterial::new(1.5));
+                let sphere = Box::new(Sphere::new(&center, 0.2, material));
+                world.add(sphere);
+            }
+        }
+    }
+
+    world.add(Box::new(Sphere::new(
+        &Point::new(0.0, 1.0, 0.0),
+        1.0,
+        Rc::new(DiaelectriMaterial::new(1.5)),
+    )));
+    world.add(Box::new(Sphere::new(
+        &Point::new(-4.0, 1.0, 0.0),
+        1.0,
+        Rc::new(LambertianMaterial {
+            albedo: Color::new(0.4, 0.2, 0.1),
+        }),
+    )));
+    world.add(Box::new(Sphere::new(
+        &Point::new(4.0, 1.0, 0.0),
+        1.0,
+        Rc::new(MetalMaterial {
+            albedo: Color::new(0.7, 0.6, 0.5),
+            fuzziness: 0.0,
+        }),
+    )));
+
+    world
 }
