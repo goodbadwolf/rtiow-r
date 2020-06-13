@@ -1,15 +1,16 @@
 use crate::math::{
-    clamp, dot_product, is_in_range, random_in_range, random_in_unit_hemisphere,
-    reflect_around_normal, to_unit_vector, Color, Float, Point, Ray, Vec3,
+    clamp, cross_product, degrees_to_radians, dot_product, is_in_range, random_float,
+    random_in_range, random_in_unit_hemisphere, reflect_around_normal, refract_around_normal,
+    to_unit_vector, Color, Float, Point, Ray, Vec3,
 };
 use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::io::Write;
 use std::rc::Rc;
 
-pub const BLACK: Color = Color::with_elements(0.0 as Float, 0.0 as Float, 0.0 as Float);
-pub const WHITE: Color = Color::with_elements(1.0 as Float, 1.0 as Float, 1.0 as Float);
-const LIGHT_BLUE: Color = Color::with_elements(0.5 as Float, 0.7 as Float, 1.0 as Float);
+pub const BLACK: Color = Color::new(0.0 as Float, 0.0 as Float, 0.0 as Float);
+pub const WHITE: Color = Color::new(1.0 as Float, 1.0 as Float, 1.0 as Float);
+const LIGHT_BLUE: Color = Color::new(0.5 as Float, 0.7 as Float, 1.0 as Float);
 
 pub struct HitRecord {
     pub point: Point,
@@ -50,6 +51,12 @@ pub struct LambertianMaterial {
 
 pub struct MetalMaterial {
     pub albedo: Color,
+    pub fuzziness: Float,
+}
+
+pub struct DiaelectriMaterial {
+    pub albedo: Color,
+    pub ref_idx: Float,
 }
 
 impl HitRecord {
@@ -62,7 +69,7 @@ impl HitRecord {
     ) -> Self {
         let mut result = HitRecord {
             point: *point,
-            normal: Vec3::new(),
+            normal: Vec3::new(0 as Float, 0 as Float, 0 as Float),
             t,
             front_face: false,
             material,
@@ -105,8 +112,9 @@ impl Hittable for Sphere {
         let c = oc.length_squared() - self.radius * self.radius;
         let discriminant = half_b * half_b - a * c;
 
-        match discriminant.partial_cmp(&(0 as Float)).unwrap() {
-            Ordering::Less => None,
+        match discriminant.partial_cmp(&(0 as Float)) {
+            Some(Ordering::Less) => None,
+            None => None,
             _ => {
                 let root = discriminant.sqrt();
                 let t_root1 = (-half_b - root) / a;
@@ -156,17 +164,26 @@ impl Hittable for HittableCollection {
 }
 
 impl Camera {
-    pub fn new(width: u32, height: u32) -> Self {
-        let aspect_ratio = width as Float / height as Float;
-        let viewport_height = 2 as Float;
+    pub fn new(
+        look_from: &Point,
+        look_at: &Point,
+        vup: &Vec3,
+        vfov: Float,
+        aspect_ratio: Float,
+    ) -> Self {
+        let theta = degrees_to_radians(vfov);
+        let h = (theta / 2 as Float).tan();
+        let viewport_height = 2 as Float * h;
         let viewport_width = aspect_ratio * viewport_height;
-        let focal_length = 1 as Float;
 
-        let origin = Point::with_elements(0 as Float, 0 as Float, 1 as Float);
-        let horizontal = Vec3::with_elements(viewport_width, 0 as Float, 0 as Float);
-        let vertical = Vec3::with_elements(0 as Float, viewport_height, 0 as Float);
-        let depth = Vec3::with_elements(0 as Float, 0 as Float, focal_length);
-        let lower_left_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - depth;
+        let w = to_unit_vector(&(*look_from - *look_at));
+        let u = to_unit_vector(&cross_product(&vup, &w));
+        let v = cross_product(&w, &u);
+
+        let origin = *look_from;
+        let horizontal = u * viewport_width;
+        let vertical = v * viewport_height;
+        let lower_left_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - w;
 
         Camera {
             origin,
@@ -201,9 +218,11 @@ impl Material for LambertianMaterial {
 impl Material for MetalMaterial {
     fn scatter(&self, ray: &Ray, hit: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
         let reflected_direction = reflect_around_normal(&ray.direction, &hit.normal);
+        let fuzzed_direction =
+            reflected_direction + lambertian_random_in_unit_sphere() * self.fuzziness;
         let scattered_ray = Ray {
             origin: hit.point,
-            direction: reflected_direction,
+            direction: fuzzed_direction,
         };
         *attenuation = self.albedo;
         if dot_product(&scattered_ray.direction, &hit.normal) > 0 as Float {
@@ -214,11 +233,53 @@ impl Material for MetalMaterial {
     }
 }
 
+impl DiaelectriMaterial {
+    pub fn new(ref_idx: Float) -> Self {
+        DiaelectriMaterial {
+            ref_idx,
+            albedo: WHITE,
+        }
+    }
+
+    fn schlick(cosine: Float, ref_idx: Float) -> Float {
+        let r0 = (1 as Float - ref_idx) / (1 as Float + ref_idx);
+        let r0 = r0 * r0;
+        r0 + (1 as Float - r0) * (1 as Float - cosine).powi(5)
+    }
+}
+
+impl Material for DiaelectriMaterial {
+    fn scatter(&self, ray: &Ray, hit: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
+        *attenuation = self.albedo;
+        let etai_over_etat = if hit.front_face {
+            1 as Float / self.ref_idx
+        } else {
+            self.ref_idx
+        };
+        let direction = to_unit_vector(&ray.direction);
+        let cos_thetha = dot_product(&(-direction), &hit.normal).min(1 as Float);
+        let sin_thetha = (1 as Float - cos_thetha * cos_thetha).sqrt();
+        let reflect_prob = DiaelectriMaterial::schlick(cos_thetha, etai_over_etat);
+        let scattered_direction =
+            if (etai_over_etat * sin_thetha > 1 as Float) || reflect_prob > random_float() {
+                reflect_around_normal(&direction, &hit.normal)
+            } else {
+                refract_around_normal(&direction, &hit.normal, etai_over_etat)
+            };
+
+        let scattered_ray = Ray {
+            origin: hit.point,
+            direction: scattered_direction,
+        };
+        Some(scattered_ray)
+    }
+}
+
 pub fn lambertian_random_in_unit_sphere() -> Vec3 {
     let a = random_in_range(0 as Float, 2 as Float * PI);
     let z = random_in_range(-1 as Float, 1 as Float);
     let r = (1 as Float - (z * z)).sqrt();
-    Vec3::with_elements(r * a.cos(), r * a.sin(), z)
+    Vec3::new(r * a.cos(), r * a.sin(), z)
 }
 
 pub fn get_ray_color(ray: &Ray, world: &HittableCollection, depth: u32) -> Color {
@@ -253,7 +314,7 @@ pub fn write_pixel(out: &mut dyn Write, pixel_color: &Color) -> std::io::Result<
 }
 
 fn apply_gamma_correction(color: &Color) -> Color {
-    Color::with_elements(color.e[0].sqrt(), color.e[1].sqrt(), color.e[2].sqrt())
+    Color::new(color.e[0].sqrt(), color.e[1].sqrt(), color.e[2].sqrt())
 }
 
 fn to_color_byte(c: Float) -> u8 {

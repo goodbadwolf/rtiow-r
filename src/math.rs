@@ -1,4 +1,5 @@
 use rand::Rng;
+use std::f64::consts::PI;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
 pub type Float = f64;
@@ -18,22 +19,16 @@ pub struct Ray {
 }
 
 impl Vec3 {
-    pub const fn new() -> Vec3 {
-        Vec3 {
-            e: [0 as Float, 0 as Float, 0 as Float],
-        }
-    }
-
-    pub const fn with_elements(e0: Float, e1: Float, e2: Float) -> Vec3 {
+    pub const fn new(e0: Float, e1: Float, e2: Float) -> Vec3 {
         Vec3 { e: [e0, e1, e2] }
     }
 
     pub fn random() -> Vec3 {
-        Vec3::with_elements(random_float(), random_float(), random_float())
+        Vec3::new(random_float(), random_float(), random_float())
     }
 
     pub fn random_in_range(min: Float, max: Float) -> Vec3 {
-        Vec3::with_elements(
+        Vec3::new(
             random_in_range(min, max),
             random_in_range(min, max),
             random_in_range(min, max),
@@ -65,7 +60,7 @@ impl Add for Vec3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        Self::with_elements(
+        Self::new(
             self.e[0] + rhs.e[0],
             self.e[1] + rhs.e[1],
             self.e[2] + rhs.e[2],
@@ -85,7 +80,7 @@ impl Sub for Vec3 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self::with_elements(
+        Self::new(
             self.e[0] - rhs.e[0],
             self.e[1] - rhs.e[1],
             self.e[2] - rhs.e[2],
@@ -97,7 +92,7 @@ impl Mul<Float> for Vec3 {
     type Output = Self;
 
     fn mul(self, t: Float) -> Self::Output {
-        Self::with_elements(self.e[0] * t, self.e[1] * t, self.e[2] * t)
+        Self::new(self.e[0] * t, self.e[1] * t, self.e[2] * t)
     }
 }
 
@@ -105,7 +100,7 @@ impl Mul for Vec3 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Vec3::with_elements(
+        Vec3::new(
             self.e[0] * rhs.e[0],
             self.e[1] * rhs.e[1],
             self.e[2] * rhs.e[2],
@@ -139,15 +134,15 @@ impl Neg for Vec3 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        Vec3::with_elements(-self.e[0], -self.e[1], -self.e[2])
+        Vec3::new(-self.e[0], -self.e[1], -self.e[2])
     }
 }
 
 impl Ray {
     pub fn new() -> Ray {
         Ray {
-            origin: Vec3::new(),
-            direction: Vec3::new(),
+            origin: Vec3::new(0 as Float, 0 as Float, 0 as Float),
+            direction: Vec3::new(0 as Float, 0 as Float, 0 as Float),
         }
     }
 
@@ -162,6 +157,14 @@ pub fn to_unit_vector(v: &Vec3) -> Vec3 {
 
 pub fn dot_product(u: &Vec3, v: &Vec3) -> Float {
     u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2]
+}
+
+pub fn cross_product(u: &Vec3, v: &Vec3) -> Vec3 {
+    Vec3::new(
+        u.e[1] * v.e[2] - u.e[2] * v.e[1],
+        u.e[2] * v.e[0] - u.e[0] * v.e[2],
+        u.e[0] * v.e[1] - u.e[1] * v.e[0],
+    )
 }
 
 pub fn is_in_range(t: Float, t_min: Float, t_max: Float) -> bool {
@@ -207,4 +210,15 @@ pub fn random_in_unit_hemisphere(normal: &Vec3) -> Vec3 {
 
 pub fn reflect_around_normal(v: &Vec3, normal: &Vec3) -> Vec3 {
     *v - *normal * 2 as Float * dot_product(v, normal)
+}
+
+pub fn refract_around_normal(u: &Vec3, normal: &Vec3, etai_over_etat: Float) -> Vec3 {
+    let cos_theta = dot_product(&(-*u), normal);
+    let r_out_parallel = (*u + (*normal * cos_theta)) * etai_over_etat;
+    let r_out_perp = *normal * -(1.0 as Float - r_out_parallel.length_squared()).sqrt();
+    return r_out_parallel + r_out_perp;
+}
+
+pub fn degrees_to_radians(theta: Float) -> Float {
+    (theta * PI) / 180 as Float
 }
