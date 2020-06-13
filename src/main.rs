@@ -14,8 +14,10 @@ use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 200;
+const IMAGE_WIDTH: u32 = 1920;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
+const TILE_WIDTH: u32 = 32;
+const TILE_HEIGHT: u32 = (TILE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: u32 = 20;
 
@@ -34,25 +36,41 @@ fn main() -> std::io::Result<()> {
         &look_from,
         &look_at,
         &vup,
-        20.0,
+        60.0,
         ASPECT_RATIO,
         aperture,
         distance_to_focus,
     );
 
-    for j in 0..IMAGE_HEIGHT {
-        for i in 0..IMAGE_WIDTH {
-            let mut pixel_color = BLACK;
+    let num_tiles = (IMAGE_WIDTH * IMAGE_HEIGHT) / (TILE_WIDTH * TILE_HEIGHT);
+    let tiles_per_row = IMAGE_WIDTH / TILE_WIDTH;
 
-            for _s in 0..SAMPLES_PER_PIXEL {
-                let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
-                let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
-                let ray = camera.get_ray(u, v);
-                pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
+    for tile_idx in 0..num_tiles {
+        let col_start = (tile_idx % tiles_per_row) * TILE_WIDTH;
+        let col_end = col_start + TILE_WIDTH;
+        let row_start = (tile_idx / tiles_per_row) * TILE_HEIGHT;
+        let row_end = row_start + TILE_HEIGHT;
+        for j in row_start..row_end {
+            for i in col_start..col_end {
+                let mut pixel_color = BLACK;
+
+                for _s in 0..SAMPLES_PER_PIXEL {
+                    let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
+                    let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
+                    let ray = camera.get_ray(u, v);
+                    pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
+                }
+                pixel_color /= SAMPLES_PER_PIXEL as f64;
+                frame_buffer[j as usize][i as usize] = pixel_color;
             }
-            pixel_color /= SAMPLES_PER_PIXEL as f64;
-            frame_buffer[j as usize][i as usize] = pixel_color;
         }
+        let progress_percent = tile_idx * 100 / (num_tiles - 1);
+        eprintln!(
+            "{}%: {} out of {} done",
+            progress_percent,
+            tile_idx + 1,
+            num_tiles
+        );
     }
 
     let io_timer = Instant::now();
