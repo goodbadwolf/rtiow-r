@@ -1,7 +1,7 @@
 use crate::math::{
     clamp, cross_product, degrees_to_radians, dot_product, is_in_range, random_float,
-    random_in_range, random_in_unit_hemisphere, reflect_around_normal, refract_around_normal,
-    to_unit_vector, Color, Float, Point, Ray, Vec3,
+    random_in_range, random_in_unit_disk, random_in_unit_hemisphere, reflect_around_normal,
+    refract_around_normal, to_unit_vector, Color, Float, Point, Ray, Vec3,
 };
 use std::cmp::Ordering;
 use std::f64::consts::PI;
@@ -36,9 +36,13 @@ pub struct HittableCollection {
 
 pub struct Camera {
     origin: Point,
-    lower_left_corner: Point,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
     horizontal: Vec3,
     vertical: Vec3,
+    lower_left_corner: Point,
+    lens_radius: Float,
 }
 
 pub trait Material {
@@ -170,6 +174,8 @@ impl Camera {
         vup: &Vec3,
         vfov: Float,
         aspect_ratio: Float,
+        aperture: Float,
+        focus_distance: Float,
     ) -> Self {
         let theta = degrees_to_radians(vfov);
         let h = (theta / 2 as Float).tan();
@@ -181,25 +187,29 @@ impl Camera {
         let v = cross_product(&w, &u);
 
         let origin = *look_from;
-        let horizontal = u * viewport_width;
-        let vertical = v * viewport_height;
-        let lower_left_corner = origin - horizontal / 2 as Float - vertical / 2 as Float - w;
+        let horizontal = u * viewport_width * focus_distance;
+        let vertical = v * viewport_height * focus_distance;
+        let lower_left_corner =
+            origin - horizontal / 2 as Float - vertical / 2 as Float - w * focus_distance;
 
         Camera {
             origin,
+            u,
+            v,
+            w,
             horizontal,
             vertical,
             lower_left_corner,
+            lens_radius: aperture / 2 as Float,
         }
     }
 
-    pub fn get_ray(&self, u: Float, v: Float) -> Ray {
-        let direction =
-            self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin;
-        Ray {
-            origin: self.origin,
-            direction,
-        }
+    pub fn get_ray(&self, s: Float, t: Float) -> Ray {
+        let rd = random_in_unit_disk() * self.lens_radius;
+        let offset = self.u * rd.x() + self.v * rd.y();
+        let origin = self.origin + offset;
+        let direction = self.lower_left_corner + self.horizontal * s + self.vertical * t - origin;
+        Ray { origin, direction }
     }
 }
 

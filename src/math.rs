@@ -199,6 +199,21 @@ pub fn random_in_unit_sphere() -> Vec3 {
     }
 }
 
+pub fn random_in_unit_disk() -> Vec3 {
+    loop {
+        let p = Vec3::new(
+            random_in_range(-1 as Float, 1 as Float),
+            random_in_range(-1 as Float, 1 as Float),
+            0 as Float,
+        );
+        if p.length_squared() >= 1 as Float {
+            continue;
+        } else {
+            return p;
+        }
+    }
+}
+
 pub fn random_in_unit_hemisphere(normal: &Vec3) -> Vec3 {
     let in_unit_sphere = random_in_unit_sphere();
     if dot_product(&in_unit_sphere, normal) > 0 as Float {

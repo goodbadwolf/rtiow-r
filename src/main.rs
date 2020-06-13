@@ -105,12 +105,20 @@ fn main() -> std::io::Result<()> {
     )));
      */
 
+    let look_from = Point::new(3 as Float, 3 as Float, 2 as Float);
+    let look_at = Point::new(0 as Float, 0 as Float, -1 as Float);
+    let vup = Vec3::new(0 as Float, 1 as Float, 0 as Float);
+    let distance_to_focus = (look_from - look_at).length();
+    let aperture = 2 as Float;
+
     let camera = Camera::new(
-        &Point::new(-2 as Float, 2 as Float, 1 as Float),
-        &Point::new(0 as Float, 0 as Float, -1 as Float),
-        &Vec3::new(0 as Float, 1 as Float, 0 as Float),
+        &look_from,
+        &look_at,
+        &vup,
         20 as Float,
         ASPECT_RATIO,
+        aperture,
+        distance_to_focus,
     );
 
     for j in (0..IMAGE_HEIGHT).rev() {
