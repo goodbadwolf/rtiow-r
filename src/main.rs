@@ -6,11 +6,11 @@ use crate::trace::{
     get_ray_color, Camera, DiaelectriMaterial, HittableCollection, LambertianMaterial,
     MetalMaterial, Sphere, BLACK,
 };
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::sync::Arc;
-use std::thread;
 use std::time::Instant;
 use trace::write_pixel;
 
@@ -45,17 +45,16 @@ fn main() -> std::io::Result<()> {
     let num_tiles = (IMAGE_WIDTH * IMAGE_HEIGHT) / (TILE_WIDTH * TILE_HEIGHT);
     let tiles_per_row = IMAGE_WIDTH / TILE_WIDTH;
 
-    let mut thread_handles: Vec<_> = vec![];
+    let tile_results = (0..num_tiles)
+        .into_par_iter()
+        .map(|tile_idx| {
+            let col_start = (tile_idx % tiles_per_row) * TILE_WIDTH;
+            let col_end = col_start + TILE_WIDTH;
+            let row_start = (tile_idx / tiles_per_row) * TILE_HEIGHT;
+            let row_end = row_start + TILE_HEIGHT;
 
-    for tile_idx in 0..num_tiles {
-        let col_start = (tile_idx % tiles_per_row) * TILE_WIDTH;
-        let col_end = col_start + TILE_WIDTH;
-        let row_start = (tile_idx / tiles_per_row) * TILE_HEIGHT;
-        let row_end = row_start + TILE_HEIGHT;
-
-        let camera = camera.clone();
-        let world = world.clone();
-        let handle = thread::spawn(move || {
+            let camera = camera.clone();
+            let world = world.clone();
             let mut tile_buffer = vec![vec![BLACK; TILE_WIDTH as usize]; TILE_HEIGHT as usize];
 
             for j in row_start..row_end {
@@ -76,22 +75,6 @@ fn main() -> std::io::Result<()> {
             }
 
             (tile_idx, tile_buffer)
-        });
-
-        thread_handles.push(handle);
-    }
-
-    let mut tiles_done = 0;
-    let tile_results = thread_handles
-        .into_iter()
-        .map(|handle| {
-            let result = handle.join().unwrap();
-
-            tiles_done += 1;
-            let progress = tiles_done * 100 / num_tiles;
-            eprintln!("{} %: {} out of {} done", progress, tiles_done, num_tiles);
-
-            result
         })
         .collect::<Vec<_>>();
 
@@ -106,6 +89,7 @@ fn main() -> std::io::Result<()> {
             }
         }
     }
+
     let render_time = render_timer.elapsed().as_millis();
 
     let io_timer = Instant::now();
