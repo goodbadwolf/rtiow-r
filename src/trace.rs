@@ -6,7 +6,7 @@ use crate::math::{
 use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::io::Write;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
 pub const WHITE: Color = Color::new(1.0, 1.0, 1.0);
@@ -17,7 +17,7 @@ pub struct HitRecord {
     pub normal: Vec3,
     pub t: f64,
     pub front_face: bool,
-    pub material: Rc<dyn Material>,
+    pub material: Arc<dyn Material + Send + Sync>,
 }
 
 pub trait Hittable {
@@ -27,11 +27,11 @@ pub trait Hittable {
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
-    pub material: Rc<dyn Material>,
+    pub material: Arc<dyn Material + Send + Sync>,
 }
 
 pub struct HittableCollection {
-    pub hittables: Vec<Box<dyn Hittable>>,
+    pub hittables: Vec<Box<dyn Hittable + Send + Sync>>,
 }
 
 #[allow(dead_code)]
@@ -70,7 +70,7 @@ impl HitRecord {
         ray: &Ray,
         t: f64,
         outward_normal: &Vec3,
-        material: Rc<dyn Material>,
+        material: Arc<dyn Material + Send + Sync>,
     ) -> Self {
         let mut result = HitRecord {
             point: *point,
@@ -94,7 +94,7 @@ impl HitRecord {
 }
 
 impl Sphere {
-    pub fn new(center: &Point, radius: f64, material: Rc<dyn Material>) -> Self {
+    pub fn new(center: &Point, radius: f64, material: Arc<dyn Material + Send + Sync>) -> Self {
         Sphere {
             center: *center,
             radius,
@@ -141,7 +141,7 @@ impl HittableCollection {
         HittableCollection { hittables: vec![] }
     }
 
-    pub fn add(&mut self, hittable: Box<dyn Hittable>) {
+    pub fn add(&mut self, hittable: Box<dyn Hittable + Send + Sync>) {
         self.hittables.push(hittable);
     }
 }

@@ -9,21 +9,21 @@ use crate::trace::{
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::thread;
 use std::time::Instant;
 use trace::write_pixel;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 1920;
+const IMAGE_WIDTH: u32 = 768;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
-const TILE_WIDTH: u32 = 32;
+const TILE_WIDTH: u32 = 16;
 const TILE_HEIGHT: u32 = (TILE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: u32 = 20;
 
 fn main() -> std::io::Result<()> {
-    let mut frame_buffer = vec![vec![BLACK; IMAGE_WIDTH as usize]; IMAGE_HEIGHT as usize];
-    let world = generate_world();
+    let world = Arc::new(generate_world());
 
     let render_timer = Instant::now();
     let look_from = Point::new(13.0, 2.0, 3.0);
@@ -32,46 +32,81 @@ fn main() -> std::io::Result<()> {
     let distance_to_focus = 10.0;
     let aperture = 0.1;
 
-    let camera = Camera::new(
+    let camera = Arc::new(Camera::new(
         &look_from,
         &look_at,
         &vup,
-        60.0,
+        20.0,
         ASPECT_RATIO,
         aperture,
         distance_to_focus,
-    );
+    ));
 
     let num_tiles = (IMAGE_WIDTH * IMAGE_HEIGHT) / (TILE_WIDTH * TILE_HEIGHT);
     let tiles_per_row = IMAGE_WIDTH / TILE_WIDTH;
+
+    let mut thread_handles: Vec<_> = vec![];
 
     for tile_idx in 0..num_tiles {
         let col_start = (tile_idx % tiles_per_row) * TILE_WIDTH;
         let col_end = col_start + TILE_WIDTH;
         let row_start = (tile_idx / tiles_per_row) * TILE_HEIGHT;
         let row_end = row_start + TILE_HEIGHT;
-        for j in row_start..row_end {
-            for i in col_start..col_end {
-                let mut pixel_color = BLACK;
 
-                for _s in 0..SAMPLES_PER_PIXEL {
-                    let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
-                    let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
-                    let ray = camera.get_ray(u, v);
-                    pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
+        let camera = camera.clone();
+        let world = world.clone();
+        let handle = thread::spawn(move || {
+            let mut tile_buffer = vec![vec![BLACK; TILE_WIDTH as usize]; TILE_HEIGHT as usize];
+
+            for j in row_start..row_end {
+                for i in col_start..col_end {
+                    let mut pixel_color = BLACK;
+
+                    for _s in 0..SAMPLES_PER_PIXEL {
+                        let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
+                        let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
+                        let ray = camera.get_ray(u, v);
+                        pixel_color += get_ray_color(&ray, &world, MAX_DEPTH);
+                    }
+                    pixel_color /= SAMPLES_PER_PIXEL as f64;
+                    let tile_j = j - row_start;
+                    let tile_i = i - col_start;
+                    tile_buffer[tile_j as usize][tile_i as usize] = pixel_color;
                 }
-                pixel_color /= SAMPLES_PER_PIXEL as f64;
-                frame_buffer[j as usize][i as usize] = pixel_color;
+            }
+
+            (tile_idx, tile_buffer)
+        });
+
+        thread_handles.push(handle);
+    }
+
+    let mut tiles_done = 0;
+    let tile_results = thread_handles
+        .into_iter()
+        .map(|handle| {
+            let result = handle.join().unwrap();
+
+            tiles_done += 1;
+            let progress = tiles_done * 100 / num_tiles;
+            eprintln!("{} %: {} out of {} done", progress, tiles_done, num_tiles);
+
+            result
+        })
+        .collect::<Vec<_>>();
+
+    let mut frame_buffer = vec![vec![BLACK; IMAGE_WIDTH as usize]; IMAGE_HEIGHT as usize];
+    for (tile_idx, tile_buffer) in tile_results {
+        for j in 0..TILE_HEIGHT {
+            for i in 0..TILE_WIDTH {
+                let frame_buffer_i = (tile_idx % tiles_per_row) * TILE_WIDTH + i;
+                let frame_buffer_j = (tile_idx / tiles_per_row) * TILE_HEIGHT + j;
+                frame_buffer[frame_buffer_j as usize][frame_buffer_i as usize] =
+                    tile_buffer[j as usize][i as usize];
             }
         }
-        let progress_percent = tile_idx * 100 / (num_tiles - 1);
-        eprintln!(
-            "{}%: {} out of {} done",
-            progress_percent,
-            tile_idx + 1,
-            num_tiles
-        );
     }
+    let render_time = render_timer.elapsed().as_millis();
 
     let io_timer = Instant::now();
     let file_name = format!("output_{}.ppm", 0);
@@ -85,9 +120,10 @@ fn main() -> std::io::Result<()> {
     output.flush()?;
 
     eprintln!(
-        "Render time taken = {}ms\nFile IO time taken = {}ms",
-        render_timer.elapsed().as_millis(),
+        "Render time taken = {}ms\nFile IO time taken = {}ms\nTotal time taken = {}ms",
+        render_time,
         io_timer.elapsed().as_millis(),
+        render_time + io_timer.elapsed().as_millis(),
     );
 
     Ok(())
@@ -96,7 +132,7 @@ fn main() -> std::io::Result<()> {
 fn generate_world() -> HittableCollection {
     let mut world = HittableCollection::new();
 
-    let ground_material = Rc::new(LambertianMaterial {
+    let ground_material = Arc::new(LambertianMaterial {
         albedo: Color::new(0.5, 0.5, 0.5),
     });
     world.add(Box::new(Sphere::new(
@@ -122,19 +158,19 @@ fn generate_world() -> HittableCollection {
             if material_choice < 0.8 {
                 // Diffuse
                 let albedo = Color::random() * Color::random();
-                let material = Rc::new(LambertianMaterial { albedo });
+                let material = Arc::new(LambertianMaterial { albedo });
                 let sphere = Box::new(Sphere::new(&center, 0.2, material));
                 world.add(sphere);
             } else if material_choice < 0.95 {
                 // Metal
                 let albedo = Color::random_in_range(0.5, 1.0);
                 let fuzziness = random_in_range(0.0, 0.5);
-                let material = Rc::new(MetalMaterial { albedo, fuzziness });
+                let material = Arc::new(MetalMaterial { albedo, fuzziness });
                 let sphere = Box::new(Sphere::new(&center, 0.2, material));
                 world.add(sphere);
             } else {
                 // Glass
-                let material = Rc::new(DiaelectriMaterial::new(1.5));
+                let material = Arc::new(DiaelectriMaterial::new(1.5));
                 let sphere = Box::new(Sphere::new(&center, 0.2, material));
                 world.add(sphere);
             }
@@ -144,19 +180,19 @@ fn generate_world() -> HittableCollection {
     world.add(Box::new(Sphere::new(
         &Point::new(0.0, 1.0, 0.0),
         1.0,
-        Rc::new(DiaelectriMaterial::new(1.5)),
+        Arc::new(DiaelectriMaterial::new(1.5)),
     )));
     world.add(Box::new(Sphere::new(
         &Point::new(-4.0, 1.0, 0.0),
         1.0,
-        Rc::new(LambertianMaterial {
+        Arc::new(LambertianMaterial {
             albedo: Color::new(0.4, 0.2, 0.1),
         }),
     )));
     world.add(Box::new(Sphere::new(
         &Point::new(4.0, 1.0, 0.0),
         1.0,
-        Rc::new(MetalMaterial {
+        Arc::new(MetalMaterial {
             albedo: Color::new(0.7, 0.6, 0.5),
             fuzziness: 0.0,
         }),
