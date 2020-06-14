@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use trace::write_pixel;
 
@@ -45,16 +45,15 @@ fn main() -> std::io::Result<()> {
     let num_tiles = (IMAGE_WIDTH * IMAGE_HEIGHT) / (TILE_WIDTH * TILE_HEIGHT);
     let tiles_per_row = IMAGE_WIDTH / TILE_WIDTH;
 
+    let tiles_counter = Arc::new(Mutex::new(0));
     let tile_results = (0..num_tiles)
         .into_par_iter()
-        .map(|tile_idx| {
+        .map(move |tile_idx| {
             let col_start = (tile_idx % tiles_per_row) * TILE_WIDTH;
             let col_end = col_start + TILE_WIDTH;
             let row_start = (tile_idx / tiles_per_row) * TILE_HEIGHT;
             let row_end = row_start + TILE_HEIGHT;
 
-            let camera = camera.clone();
-            let world = world.clone();
             let mut tile_buffer = vec![vec![BLACK; TILE_WIDTH as usize]; TILE_HEIGHT as usize];
 
             for j in row_start..row_end {
@@ -73,6 +72,11 @@ fn main() -> std::io::Result<()> {
                     tile_buffer[tile_j as usize][tile_i as usize] = pixel_color;
                 }
             }
+
+            let mut count = tiles_counter.lock().unwrap();
+            *count += 1;
+            let progress = *count * 100 / num_tiles;
+            eprintln!("{} %: {} out of {} done", progress, *count, num_tiles);
 
             (tile_idx, tile_buffer)
         })
