@@ -24,5 +24,6 @@
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
 
-# Output images
+# Output
 **/*.ppm
+output*.csv
