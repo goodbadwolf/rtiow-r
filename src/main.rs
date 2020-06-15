@@ -11,7 +11,7 @@ use std::f64::consts::PI;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 use trace::write_pixel;
 
@@ -27,7 +27,9 @@ fn main() -> std::io::Result<()> {
     let world = Arc::new(generate_world());
     let camera_locus_radius = 13.34;
 
-    for (step_idx, camera_locus_angle) in linspace(0.0, 2.0 * PI, 10).into_iter().enumerate() {
+    let mut render_stats = vec![];
+
+    for (step_idx, camera_locus_angle) in linspace(0.0, 2.0 * PI, 360).into_iter().enumerate() {
         let render_timer = Instant::now();
         let look_from = Point::new(
             camera_locus_radius * camera_locus_angle.cos(),
@@ -53,7 +55,6 @@ fn main() -> std::io::Result<()> {
         let num_tiles = (IMAGE_WIDTH * IMAGE_HEIGHT) / (TILE_WIDTH * TILE_HEIGHT);
         let tiles_per_row = IMAGE_WIDTH / TILE_WIDTH;
 
-        let tiles_counter = Arc::new(Mutex::new(0));
         let tile_results = (0..num_tiles)
             .into_par_iter()
             .map(move |tile_idx| {
@@ -81,13 +82,6 @@ fn main() -> std::io::Result<()> {
                     }
                 }
 
-                /*
-                let mut count = tiles_counter.lock().unwrap();
-                *count += 1;
-                let progress = *count * 100 / num_tiles;
-                eprintln!("{} %: {} out of {} done", progress, *count, num_tiles);
-                */
-
                 (tile_idx, tile_buffer)
             })
             .collect::<Vec<_>>();
@@ -105,8 +99,8 @@ fn main() -> std::io::Result<()> {
         }
 
         let render_time = render_timer.elapsed().as_millis();
+        render_stats.push((step_idx, render_time));
 
-        let io_timer = Instant::now();
         let file_name = format!("output_{}.ppm", step_idx);
         let mut output = BufWriter::new(File::create(&Path::new(&file_name))?);
         writeln!(&mut output, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
@@ -116,15 +110,14 @@ fn main() -> std::io::Result<()> {
             }
         }
         output.flush()?;
-
-        eprintln!(
-            "For {}: Render, File IO, Total time taken = {}, {}, {} ms",
-            file_name,
-            render_time,
-            io_timer.elapsed().as_millis(),
-            render_time + io_timer.elapsed().as_millis(),
-        );
     }
+
+    let mut stats_writer = csv::Writer::from_path(&Path::new("output_stats.csv"))?;
+    stats_writer.write_record(&["Step_Idx", "Time_In_Ms"])?;
+    for (i, time) in render_stats.into_iter() {
+        stats_writer.write_record(&[format!("{}", i), format!("{}", time)])?;
+    }
+    stats_writer.flush()?;
 
     Ok(())
 }
