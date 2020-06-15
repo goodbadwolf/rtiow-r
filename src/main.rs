@@ -20,7 +20,7 @@ const IMAGE_WIDTH: u32 = 1280;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const TILE_WIDTH: u32 = 16;
 const TILE_HEIGHT: u32 = (TILE_WIDTH as f64 / ASPECT_RATIO) as u32;
-const SAMPLES_PER_PIXEL: u32 = 100;
+const SAMPLES_PER_PIXEL: u32 = 500;
 const MAX_DEPTH: u32 = 20;
 
 fn main() -> std::io::Result<()> {
@@ -36,7 +36,7 @@ fn main() -> std::io::Result<()> {
         let render_timer = Instant::now();
         let look_from = Point::new(
             camera_locus_radius * camera_locus_angle.cos(),
-            10.0,
+            7.0,
             camera_locus_radius * camera_locus_angle.sin(),
         );
         let look_at = Point::new(0.0, 0.0, 0.0);
