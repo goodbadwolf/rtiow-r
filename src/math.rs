@@ -1,3 +1,4 @@
+use num::{Float, FromPrimitive};
 use rand::Rng;
 use std::f64::consts::PI;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -225,4 +226,14 @@ pub fn refract_around_normal(u: &Vec3, normal: &Vec3, etai_over_etat: f64) -> Ve
 
 pub fn degrees_to_radians(theta: f64) -> f64 {
     (theta * PI) / 180.0
+}
+
+pub fn linspace<T>(start: T, stop: T, num_steps: u32) -> Vec<T>
+where
+    T: Float + FromPrimitive,
+{
+    let delta: T = (stop - start) / T::from_u32(num_steps - 1).expect("out of range");
+    (0..(num_steps))
+        .map(|i| start + T::from_u32(i).expect("out of range") * delta)
+        .collect()
 }
