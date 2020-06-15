@@ -29,7 +29,10 @@ fn main() -> std::io::Result<()> {
 
     let mut render_stats = vec![];
 
-    for (step_idx, camera_locus_angle) in linspace(0.0, 2.0 * PI, 360).into_iter().enumerate() {
+    let mut total_render_time = 0u128;
+    let num_steps = 240;
+    for (step_idx, camera_locus_angle) in linspace(0.0, 2.0 * PI, num_steps).into_iter().enumerate()
+    {
         let render_timer = Instant::now();
         let look_from = Point::new(
             camera_locus_radius * camera_locus_angle.cos(),
@@ -100,8 +103,19 @@ fn main() -> std::io::Result<()> {
 
         let render_time = render_timer.elapsed().as_millis();
         render_stats.push((step_idx, render_time));
+        total_render_time += render_time;
+        let avg_render_time = total_render_time / (step_idx as u128 + 1);
+        let frames_left = num_steps - step_idx as u32 - 1;
+        let est_time_left = avg_render_time * frames_left as u128;
+        let est_time_left_mins = est_time_left / 60000;
+        eprintln!(
+            "Step {:03} done in {} ms. Est time left = {} mins",
+            step_idx + 1,
+            render_time,
+            est_time_left_mins
+        );
 
-        let file_name = format!("output_{}.ppm", step_idx);
+        let file_name = format!("output_{:03}.ppm", step_idx);
         let mut output = BufWriter::new(File::create(&Path::new(&file_name))?);
         writeln!(&mut output, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
         for j in (0..IMAGE_HEIGHT).rev() {
