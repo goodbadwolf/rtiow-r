@@ -1,1 +1,1 @@
-# FUCK YOU GARRETT
+# Ray Tracing In One Weekend - Rust
